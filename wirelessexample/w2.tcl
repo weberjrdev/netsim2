@@ -18,7 +18,9 @@ Queue/RED set old_ecn_ true
 ##################################################################
 
 set val(chan)		Channel/WirelessChannel
-set val(prop)		Propagation/TwoRayGround
+set val(rayprop)	Propagation/TwoRayGround
+set val(freeprop)	Propagation/FreeSpace
+set val(shadprop)	Propagation/Shadowing
 set val(netif)		Phy/WirelessPhy
 set val(mac)            Mac/802_11
 
@@ -33,8 +35,8 @@ set val(ant)            Antenna/OmniAntenna
 set val(x)		500	
 set val(y)		500	
 set val(ifqlen)		50		
-set val(nn)		7		
-set val(stop)		102.0		
+set val(nn)		9		
+set val(stop)		10.0		
 set val(rp)             AODV       
 
 ##################################################################
@@ -57,7 +59,7 @@ $ns_ trace-all $tracefd
 set namtrace [open 002.nam w]
 $ns_ namtrace-all-wireless $namtrace $val(x) $val(y)
 
-set prop	[new $val(prop)]
+set prop	[new $val(freeprop)]
 
 set topo	[new Topography]
 $topo load_flatgrid $val(x) $val(y)
@@ -76,6 +78,7 @@ create-god $val(nn)
 ##################################################################
 
 Phy/WirelessPhy set freq_ 2.4e+9
+Phy/WirelessPhy set RXThresh_ 1000
 Mac/802_11 set dataRate_ 54.0e6                   
         
 ##################################################################
@@ -88,7 +91,7 @@ Mac/802_11 set dataRate_ 54.0e6
 			 -ifqType $val(ifq) \
 			 -ifqLen $val(ifqlen) \
 			 -antType $val(ant) \
-			 -propType $val(prop) \
+			 -propType $val(freeprop) \
 			 -phyType $val(netif) \
 			 -channelType $val(chan) \
 			 -topoInstance $topo \
@@ -105,6 +108,7 @@ for {set i 0} {$i < $val(nn) } {incr i} {
      $node_($i) random-motion 0	
 }
 
+
 ##################################################################
 #		Initial Positions of Nodes			 #
 ##################################################################
@@ -117,13 +121,16 @@ for {set i 0} {$i < $val(nn)} {incr i} {
 #		Topology Design				 	 #
 ##################################################################
 
-$ns_ at 10.0 "$node_(0) setdest 10.0 10.0 20.0"
-$ns_ at 10.0 "$node_(6) setdest 310.0 10.0 20.0"
-$ns_ at 10.0 "$node_(1) setdest 10.0 160.0 20.0"
-$ns_ at 10.0 "$node_(4) setdest 160.0 160.0 20.0"
-$ns_ at 10.0 "$node_(2) setdest 10.0 310.0 20.0"
-$ns_ at 10.0 "$node_(5) setdest 310.0 310.0 20.0"
-$ns_ at 10.0 "$node_(3) setdest 10.0 460.0 20.0"
+$ns_ at 0.1 "$node_(0) setdest 400.0 400.0 2000.0"
+$ns_ at 0.1 "$node_(1) setdest 10.0 160.0 2000.0"
+$ns_ at 0.1 "$node_(2) setdest 160.0 310.0 2000.0"
+$ns_ at 0.1 "$node_(3) setdest 310.0 160.0 2000.0"
+$ns_ at 0.1 "$node_(4) setdest 160.0 10.0 2000.0"
+$ns_ at 0.1 "$node_(5) setdest 85.0 235.0 2000.0"
+$ns_ at 0.1 "$node_(6) setdest 235.0 235.0 2000.0"
+$ns_ at 0.1 "$node_(7) setdest 85.0 85.0 2000.0"
+$ns_ at 0.1 "$node_(8) setdest 235.0 85.0 2000.0"
+
 
 ##################################################################
 #		Generating Traffic				 #
@@ -132,76 +139,39 @@ $ns_ at 10.0 "$node_(3) setdest 10.0 460.0 20.0"
 
 set tcp0 [new Agent/TCP]
 set sink0 [new Agent/TCPSink]
-$ns_ attach-agent $node_(0) $tcp0
-$ns_ attach-agent $node_(5) $sink0
+$ns_ attach-agent $node_(1) $tcp0
+$ns_ attach-agent $node_(0) $sink0
 $ns_ connect $tcp0 $sink0
 set ftp0 [new Application/FTP]
 $ftp0 attach-agent $tcp0
-$ns_ at 30.0 "$ftp0 start" 
-$ns_ at 48.0 "$ftp0 stop"
+$ns_ at 1.0 "$ftp0 start" 
+$ns_ at 2.0 "$ftp0 stop"
 
-$ns_ node-config -ifqType Queue/RED
+#$ns_ node-config -ifqType Queue/RED
+$ns_ node-config -propType $val(rayprop)
+
 
 set tcp1 [new Agent/TCP]
 set sink1 [new Agent/TCPSink]
 $ns_ attach-agent $node_(1) $tcp1
-$ns_ attach-agent $node_(5) $sink1
+$ns_ attach-agent $node_(0) $sink1
 $ns_ connect $tcp1 $sink1
 set ftp1 [new Application/FTP]
 $ftp1 attach-agent $tcp1
-$ns_ at 30.0 "$ftp1 start" 
-$ns_ at 48.0 "$ftp1 stop"
-$ns_ at 60.0 "$ftp1 start" 
-$ns_ at 70.0 "$ftp1 stop"
+$ns_ at 3.0 "$ftp1 start" 
+$ns_ at 4.0 "$ftp1 stop"
 
-set tcp2 [new Agent/TCP]
-set sink2 [new Agent/TCPSink]
-$ns_ attach-agent $node_(2) $tcp2
-$ns_ attach-agent $node_(6) $sink2
-$ns_ connect $tcp2 $sink2
-set ftp2 [new Application/FTP]
-$ftp2 attach-agent $tcp2
-$ns_ at 30.0 "$ftp2 start" 
-$ns_ at 48.0 "$ftp2 stop"
+$ns_ node-config -propType $val(shadprop)
 
-set tcp3 [new Agent/TCP]
-set sink3 [new Agent/TCPSink]
-$ns_ attach-agent $node_(3) $tcp3
-$ns_ attach-agent $node_(6) $sink3
-$ns_ connect $tcp3 $sink3
-set ftp3 [new Application/FTP]
-$ftp3 attach-agent $tcp3
-$ns_ at 30.0 "$ftp3 start" 
-$ns_ at 48.0 "$ftp3 stop"
-
-set tcp4 [new Agent/TCP]
-set sink4 [new Agent/TCPSink]
-$ns_ attach-agent $node_(4) $tcp4
-$ns_ attach-agent $node_(6) $sink4
-$ns_ connect $tcp4 $sink4
-set ftp4 [new Application/FTP]
-$ftp4 attach-agent $tcp4
-$ns_ at 30.0 "$ftp4 start" 
-$ns_ at 48.0 "$ftp4 stop"
-
-set tcp5 [new Agent/TCP]
-set sink5 [new Agent/TCPSink]
-$ns_ attach-agent $node_(5) $tcp5
-$ns_ attach-agent $node_(6) $sink5
-$ns_ connect $tcp5 $sink5
-set ftp5 [new Application/FTP]
-$ftp5 attach-agent $tcp5
-$ns_ at 30.0 "$ftp5 start" 
-$ns_ at 48.0 "$ftp5 stop"
-
-set tcp6 [new Agent/TCP]
-set sink6 [new Agent/TCPSink]
-$ns_ attach-agent $node_(6) $tcp6
-$ns_ attach-agent $node_(5) $sink6
-$ns_ connect $tcp6 $sink6
-set ftp6 [new Application/FTP]
-$ftp6 attach-agent $tcp6
-$ns_ at 100.0 "$ftp6 produce 3" 
+set tcp1 [new Agent/TCP]
+set sink1 [new Agent/TCPSink]
+$ns_ attach-agent $node_(1) $tcp1
+$ns_ attach-agent $node_(0) $sink1
+$ns_ connect $tcp1 $sink1
+set ftp1 [new Application/FTP]
+$ftp1 attach-agent $tcp1
+$ns_ at 5.0 "$ftp1 start" 
+$ns_ at 6.0 "$ftp1 stop"
 
 ##################################################################
 #		Simulation Termination				 #
